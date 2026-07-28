@@ -8,7 +8,6 @@
         exemptUsers: ["ADMIN", "Manager_Test"],
         managerUsers: ["Manager_Test"],
         overlayId: "parentBlockOverlay",
-        managerOverlayId: "managerAckOverlay",
         styleId: "parentBlockOverlayStyles",
         ownerKey: "__ackActiveInstance",
         checkIntervalMs: 400,
@@ -26,8 +25,6 @@
     var states = {};
     var intervalId = null;
     var saving = false;
-    /* Prevent the recipient poller from deleting the manager's overlay. */
-    var managerUiActive = false;
 
     function normalize(value) {
         return String(value || "").trim();
@@ -163,37 +160,34 @@
         if (document.getElementById(config.styleId)) return;
         var style = document.createElement("style");
         style.id = config.styleId;
-        var overlaySelector = ".ackTrackingOverlay";
         style.textContent =
             "@keyframes ackSpin{to{transform:rotate(360deg)}}" +
-            overlaySelector + "{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.9);backdrop-filter:blur(6px);font-family:'Segoe UI',Tahoma,Arial,sans-serif}" +
-            overlaySelector + " .box{direction:rtl;width:min(380px,calc(100vw - 48px));padding:34px;background:#fff;border-radius:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45)}" +
-            overlaySelector + " .badge{display:flex;align-items:center;justify-content:center;width:52px;height:52px;margin:0 auto 16px;border-radius:50%;color:#fff;background:#2563eb;font-size:24px}" +
-            overlaySelector + " .spinner{width:22px;height:22px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:ackSpin .8s linear infinite}" +
-            overlaySelector + " .title{font-size:18px;font-weight:700;color:#0f172a}" +
-            overlaySelector + " .msg{margin:8px 0 24px;white-space:pre-line;line-height:1.7;color:#475569}" +
-            overlaySelector + " .doc{display:block;color:#1e40af;font-weight:700}" +
-            overlaySelector + " .buttons{display:flex;gap:10px}" +
-            overlaySelector + " button{flex:1;padding:12px;border:0;border-radius:10px;color:#fff;font-weight:700;cursor:pointer}" +
-            overlaySelector + " .ack{background:#15803d}" + overlaySelector + " .unack{background:#b91c1c}" +
-            overlaySelector + " .close{display:block;width:100%;margin-top:12px;background:#475569}";
+            "#" + config.overlayId + "{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.9);backdrop-filter:blur(6px);font-family:'Segoe UI',Tahoma,Arial,sans-serif}" +
+            "#" + config.overlayId + " .box{direction:rtl;width:min(380px,calc(100vw - 48px));padding:34px;background:#fff;border-radius:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45)}" +
+            "#" + config.overlayId + " .badge{display:flex;align-items:center;justify-content:center;width:52px;height:52px;margin:0 auto 16px;border-radius:50%;color:#fff;background:#2563eb;font-size:24px}" +
+            "#" + config.overlayId + " .spinner{width:22px;height:22px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:ackSpin .8s linear infinite}" +
+            "#" + config.overlayId + " .title{font-size:18px;font-weight:700;color:#0f172a}" +
+            "#" + config.overlayId + " .msg{margin:8px 0 24px;white-space:pre-line;line-height:1.7;color:#475569}" +
+            "#" + config.overlayId + " .doc{display:block;color:#1e40af;font-weight:700}" +
+            "#" + config.overlayId + " .buttons{display:flex;gap:10px}" +
+            "#" + config.overlayId + " button{flex:1;padding:12px;border:0;border-radius:10px;color:#fff;font-weight:700;cursor:pointer}" +
+            "#" + config.overlayId + " .ack{background:#15803d}#" + config.overlayId + " .unack{background:#b91c1c}" +
+            "#" + config.overlayId + " .close{display:block;width:100%;margin-top:12px;background:#475569}";
         document.head.appendChild(style);
     }
 
-    function render(html, overlayId) {
+    function render(html) {
         var document = parentWindow.document;
-        overlayId = overlayId || config.overlayId;
         ensureStyles();
-        var overlay = document.getElementById(overlayId) || document.createElement("div");
-        overlay.id = overlayId;
-        overlay.className = "ackTrackingOverlay";
+        var overlay = document.getElementById(config.overlayId) || document.createElement("div");
+        overlay.id = config.overlayId;
         overlay.innerHTML = html;
         if (!overlay.parentNode) document.body.appendChild(overlay);
         return overlay;
     }
 
-    function removeOverlay(overlayId) {
-        var overlay = parentWindow.document.getElementById(overlayId || config.overlayId);
+    function removeOverlay() {
+        var overlay = parentWindow.document.getElementById(config.overlayId);
         if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
 
@@ -270,19 +264,15 @@
         var overlay = render(
             '<div class="box"><div class="badge" style="background:' + (isError ? "#b91c1c" : "#15803d") + '">' + (isError ? "!" : "✓") + '</div>' +
             '<div class="title">' + (isError ? "حدث خطأ" : "تم بنجاح") + '</div>' +
-            '<div class="msg">' + escapeHtml(message) + '</div><button class="close" data-action="close">إغلاق</button></div>',
-            config.managerOverlayId
+            '<div class="msg">' + escapeHtml(message) + '</div><button class="close" data-action="close">إغلاق</button></div>'
         );
-        overlay.querySelector('[data-action="close"]').onclick = function () {
-            managerUiActive = false;
-            removeOverlay(config.managerOverlayId);
-        };
+        overlay.querySelector('[data-action="close"]').onclick = removeOverlay;
     }
 
     function armTracking(context) {
         if (saving) return;
         saving = true;
-        render('<div class="box"><div class="badge"><div class="spinner"></div></div><div class="title">جاري تفعيل التتبع</div><div class="msg">من فضلك انتظر لحظة...</div></div>', config.managerOverlayId);
+        render('<div class="box"><div class="badge"><div class="spinner"></div></div><div class="title">جاري تفعيل التتبع</div><div class="msg">من فضلك انتظر لحظة...</div></div>');
         lock(context.entryId).then(function () {
             return getStatusField(context.entryId);
         }).then(function (field) {
@@ -324,7 +314,6 @@
         }
         if (parentWindow.__managerAckRunningEntryId === entry.id || saving) return;
         parentWindow.__managerAckRunningEntryId = entry.id;
-        managerUiActive = true;
         var button = managerButton();
         if (button) button.classList.add("ocr-running");
 
@@ -333,14 +322,12 @@
             '<div class="box"><div class="badge">✓</div><div class="title">تفعيل متابعة المستند</div>' +
             '<div class="msg">هل تريد بدء جولة متابعة جديدة؟' +
             (context.docName ? '<span class="doc">&quot;' + escapeHtml(context.docName) + '&quot;</span>' : "") + '</div>' +
-            '<div class="buttons"><button class="ack" data-action="start">تفعيل Tracking</button><button class="unack" data-action="cancel">إلغاء</button></div></div>',
-            config.managerOverlayId
+            '<div class="buttons"><button class="ack" data-action="start">تفعيل Tracking</button><button class="unack" data-action="cancel">إلغاء</button></div></div>'
         );
         overlay.querySelector('[data-action="start"]').onclick = function () { armTracking(context); };
         overlay.querySelector('[data-action="cancel"]').onclick = function () {
-            managerUiActive = false;
             releaseManagerButton();
-            removeOverlay(config.managerOverlayId);
+            removeOverlay();
         };
     };
 
@@ -360,9 +347,6 @@
             if (intervalId) parentWindow.clearInterval(intervalId);
             return;
         }
-        /* The manager is exempt from recipient prompts. Without this guard the
-           400ms recipient poll removed the manager dialog immediately. */
-        if (managerUiActive) return;
         var context = currentContext();
         if (!context) { removeOverlay(); return; }
         var state = states[context.scopeKey] || (states[context.scopeKey] = { checkedAt: 0, reading: false, resolved: false, showing: false });
@@ -388,7 +372,7 @@
     }
 
     parentWindow[config.ownerKey] = instanceId;
-    if (parentWindow.console) parentWindow.console.info("[AutoAck] Manager and recipient tracking loaded (v12).");
+    if (parentWindow.console) parentWindow.console.info("[AutoAck] Manager and recipient tracking loaded (v2).");
     check();
     intervalId = parentWindow.setInterval(check, config.checkIntervalMs);
     window.addEventListener("unload", function () {

@@ -21,11 +21,11 @@ Copy `ManagerAcknowledgeAction.js` to:
 At the end of `DocView.aspx`, immediately before `</body>`, use exactly:
 
 ```html
-<script src="/laserfiche/CustomTabs/ManagerAcknowledgeAction.js?v=12"></script>
+<script src="/laserfiche/CustomTabs/ManagerAcknowledgeAction.js?v=2"></script>
 ```
 
 Do **not** comment out that tag. Remove the old duplicate code and the old
-`AutoAcknowledgeInline.js` tag. Increment `v=12` whenever the JavaScript changes so
+`AutoAcknowledgeInline.js` tag. Increment `v=2` whenever the JavaScript changes so
 the browser does not reuse an old cached version.
 
 The existing button remains:
@@ -63,11 +63,11 @@ recipient popup. Username comparisons ignore capitalization and surrounding spac
 2. Open DevTools (`F12`), select **Network**, enable **Disable cache**, and reload
    `DocView.aspx` with `Ctrl+F5`.
 3. Filter Network by `ManagerAcknowledgeAction.js`. It must return HTTP `200`, and
-   its Response must contain `tracking loaded (v12)`.
+   its Response must contain `tracking loaded (v2)`.
 4. In Console, verify the message:
 
    ```text
-   [AutoAck] Manager and recipient tracking loaded (v12).
+   [AutoAck] Manager and recipient tracking loaded (v2).
    ```
 
 5. Run:
@@ -118,23 +118,3 @@ red Console errors; the entry has template `Test_acknowledge`; the opened entry 
 is the same one armed by the manager; and `حاله الملف` contains the manager
 `Acknowledge` line. The screenshot in the original setup showed the
 `AutoAcknowledgeInline.js` script tag commented out; commented scripts never run.
-
-## Fixed: manager dialog opened and immediately closed
-
-The recipient watcher runs every 400 ms. Managers are exempt recipients, so an
-older implementation treated the manager as having no recipient context and called
-`removeOverlay()`, accidentally deleting the manager dialog just after it opened.
-The manager flow now owns the overlay until the manager cancels or closes the final
-result. The recipient poller pauses only while that manager UI is active; saving,
-locking, and recipient polling resume normally afterward.
-
-The manager and recipient interfaces also use different DOM IDs:
-`managerAckOverlay` and `parentBlockOverlay`. Therefore even an old or duplicated
-recipient polling callback cannot delete the manager dialog by ID.
-
-The `plugin.laserfichelocalhost.com ... ERR_CONNECTION_REFUSED` messages belong to
-the optional local Laserfiche desktop integration/plugin, and the non-passive
-`touchmove` message is a browser performance warning emitted by Laserfiche's own
-splitter code. Neither message closes this overlay or indicates a failure in the
-acknowledgement API calls. Diagnose this feature using messages prefixed
-`[AutoAck]` or `[ManagerAck]` and the four Laserfiche service requests listed above.
